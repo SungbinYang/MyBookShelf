@@ -1,7 +1,8 @@
-import { createActions, handleActions } from "redux-actions";
-import { BooksState, BookType } from "../../types";
-import { takeLatest, put, select, call } from "redux-saga/effects";
+import { createActions, handleActions, Action } from "redux-actions";
+import { BookReqType, BooksState, BookType } from "../../types";
+import { takeLatest, put, select, call, takeEvery } from "redux-saga/effects";
 import BookService from "../../services/BookService";
+import { push } from "connected-react-router";
 
 const initialState: BooksState = {
   books: null,
@@ -40,7 +41,7 @@ export default reducer;
 
 // saga
 
-export const { getBooks } = createActions("GET_BOOKS", {
+export const { getBooks, addBook } = createActions("GET_BOOKS", "ADD_BOOK", {
   prefix,
 });
 
@@ -55,6 +56,24 @@ function* getBooksSaga() {
   }
 }
 
+function* addBookSaga(action: Action<BookReqType>) {
+  try {
+    yield put(pending());
+    const token: string = yield select((state) => state.auth.token);
+    const book: BookType = yield call(
+      BookService.addBook,
+      token,
+      action.payload
+    );
+    const books: BookType[] = yield select((state) => state.books.books);
+    yield put(success([...books, book]));
+    yield put(push("/"));
+  } catch (error: any) {
+    yield put(fail(new Error(error?.response?.data?.error || "UNKNOWN_ERROR")));
+  }
+}
+
 export function* booksSaga() {
   yield takeLatest(`${prefix}/GET_BOOKS`, getBooksSaga);
+  yield takeEvery(`${prefix}/ADD_BOOK`, addBookSaga);
 }
